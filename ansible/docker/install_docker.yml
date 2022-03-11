@@ -1,0 +1,49 @@
+---
+- name: installer_docker
+  hosts: web
+  remote_user: root
+  become: true
+
+  tasks:
+
+    - name: supprimer_possible_version_ancienne
+      apt:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - docker 
+        - docker-engine 
+        - docker.io
+      become: true
+
+    - name: installer_dependences
+      apt: name={{ item }} state=latest
+      with_items:
+        - curl
+        - gnupg2
+        - software-properties-common
+        - ca-certificates
+        - apt-transport-https
+        - python-pip
+      become: true
+
+    - name: importer_signature_au_systeme
+      shell: curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+
+    - name: ajouter_signature
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian stretch stable
+        state: present
+
+    - name: Indexer_update
+      become: yes
+      apt:
+        name: "*"
+        state: latest
+        update_cache: yes
+        force_apt_get: yes
+
+    - name: install_docker
+      apt:
+        name: "docker-ce"
+        state: latest

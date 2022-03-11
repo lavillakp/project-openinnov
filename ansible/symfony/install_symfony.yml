@@ -1,0 +1,71 @@
+---
+- name: create_projet_symfony
+  hosts: web
+  remote_user: root
+  become: true
+  vars_files: variables.yml
+  tasks:
+
+    - name: installer_dependences
+      apt: name={{ item }} state=latest
+      with_items:
+        - git
+        - curl
+        - unzip
+        - php
+        - php-fpm
+        - php-mysql
+        - php-curl
+        - php-cli
+        - php-bcmath
+        - php-mbstring
+        - php-xml
+        - apache2
+        - libapache2-mod-php    
+
+    - name: installer_composer
+      shell: curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+      args:
+        creates: /usr/local/bin/composer
+
+    - name: create_dossier_/var/www_si_nexiste_pas
+      file: dest="{{ dossier }}" state=directory owner=www-data group=www-data mode=0700
+
+    - stat: path="{{ dossier }}""{{ nomprojet }}"/composer.lock
+      register: composerlock
+
+    - name: create_pj_symfony
+      composer: 
+         command: create-project 
+         arguments: symfony/website-skeleton "{{ nomprojet }}" 
+         working_dir: "{{ dossier }}"
+      become: true
+      become_user: www-data    
+      when: composerlock.stat.exists == False
+
+    - name: update_dependences_pj_symfony
+      composer: command=update working_dir="{{ dossier }}{{ nomprojet }}"
+      become: true
+      become_user: www-data
+      when: composerlock.stat.exists == True
+
+    - name: virtualhost
+      template: src=templates/virtualhost.conf dest=/etc/apache2/sites-available/{{ domainsite }}.conf
+ 
+    - name: htaccess_pour_pj_symfony
+      template: src=templates/htaccess-dos.j2 dest={{ dossier }}{{ nomprojet }}.htaccess
+
+    - name: a2ensite
+      command: a2ensite {{ domainsite }}
+      args:
+        creates: /etc/apache2/sites-enabled/{{ domainsite }}.conf
+
+    - name: restart_apache2
+      apache2_module: name=rewrite state=present
+      notify:
+        - restart apache2 
+
+  handlers:
+    - name: restart apache2
+      service: name=apache2 state=restarted
+

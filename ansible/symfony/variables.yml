@@ -1,0 +1,4 @@
+nomprojet: aeutomatisato 
+dossier: /var/www/
+domainsite: symfony.{{ nomprojet }}.net
+
